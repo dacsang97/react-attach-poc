@@ -1,22 +1,30 @@
-import { useEffect, useRef } from "react";
+import { useRef, useLayoutEffect } from "react";
+
+export type CleanupFn = () => void;
+export type AttachmentFn<T extends HTMLElement = HTMLElement> = (
+  element: T
+) => void | CleanupFn;
+export type Attachment<T extends HTMLElement = HTMLElement> =
+  | AttachmentFn<T>
+  | null
+  | undefined;
 
 export function useAttach<T extends HTMLElement = HTMLElement>(
-  attachFn: (element: T) => void | (() => void),
+  attachment: Attachment<T>,
   deps: unknown[] = []
 ) {
-  const elementRef = useRef<T>(null);
+  const ref = useRef<T | null>(null);
+  const cleanupRef = useRef<CleanupFn | void>(undefined);
 
-  useEffect(() => {
-    if (!elementRef.current || typeof attachFn !== "function") return;
-
-    const cleanup = attachFn(elementRef.current);
-
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element || !attachment) return;
+    const cleanup = attachment(element);
+    cleanupRef.current = cleanup;
     return () => {
-      if (typeof cleanup === "function") {
-        cleanup();
-      }
+      if (typeof cleanupRef.current === "function") cleanupRef.current();
     };
-  }, [attachFn, ...deps]);
+  }, [attachment, ...deps]);
 
-  return elementRef;
+  return ref;
 }
